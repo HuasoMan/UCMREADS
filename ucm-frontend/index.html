@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCMREADS - Portal Bibliográfico Institucional</title>
+    <style>
+        :root {
+            --ucm-blue: #007bc4; --ucm-dark-blue: #1a365d; --ucm-bg: #f4f7fa;
+            --ucm-text: #2d3748; --ucm-gray-light: #edf2f7; --ucm-success: #38a169;
+        }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: var(--ucm-bg); 
+            margin: 0; 
+            color: var(--ucm-text); 
+        }
+
+        /* CONTENEDOR CON LA IMAGEN AJUSTADA AL 75% Y CENTRADO COMPLETO */
+        .login-container {
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            height: 100vh;
+            box-sizing: border-box;
+            background: linear-gradient(rgba(26, 54, 93, 0.75), rgba(0, 123, 196, 0.75)), url('ucm.jpg');
+            background-size: cover;
+            background-position: center 75%; /* Ajuste de altura del fondo */
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            padding: 20px;
+        }
+
+        .login-box { 
+            width: 100%; 
+            max-width: 420px; 
+            background: white; 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); 
+            text-align: center; 
+            margin: 0;
+        }
+        .login-box h2 { color: var(--ucm-dark-blue); font-size: 28px; margin-bottom: 5px; }
+        .login-box h2 span { color: var(--ucm-blue); }
+        .login-box p { color: #718096; font-size: 14px; margin-bottom: 25px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 18px; text-align: left; }
+        .form-group input, .form-group select { padding: 14px; font-size: 15px; border: 1px solid #cbd5e0; border-radius: 8px; outline: none; }
+        .form-group input:focus { border-color: var(--ucm-blue); }
+        .btn-ucm { width: 100%; padding: 14px; font-size: 16px; background-color: var(--ucm-blue); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-ucm:hover { background-color: #00629e; }
+        .navbar { background-color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-bottom: 4px solid var(--ucm-blue); }
+        .navbar-brand { font-size: 22px; font-weight: bold; color: var(--ucm-dark-blue); }
+        .navbar-brand span { color: var(--ucm-blue); }
+        .main-container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        .user-banner { background: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; border-left: 5px solid var(--ucm-blue); font-weight: 600; display: flex; justify-content: space-between; }
+        .panel { background: white; padding: 25px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        .panel h3 { margin-top: 0; color: var(--ucm-dark-blue); border-bottom: 2px solid var(--ucm-gray-light); padding-bottom: 10px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .card { background: white; border: 1px solid #e2e8f0; padding: 25px; margin-bottom: 20px; border-radius: 10px; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.05); }
+        .card h3 { margin: 0 0 10px 0; color: var(--ucm-dark-blue); }
+        .tag-obligatorio { background: #fed7d7; color: #9b2c2c; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+        .tag-complementario { background: #feebc8; color: #9c4221; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+        .voto-box { background: var(--ucm-bg); padding: 15px; border-radius: 8px; margin-top: 20px; display: flex; gap: 12px; align-items: center; border: 1px solid #e2e8f0; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- CONTENEDOR ÚNICO DE LOGIN SIN DIVS DUPLICADOS -->
+<div id="vistaLogin" class="login-container">
+    <div class="login-box">
+        <h2>UCM<span>Reads</span></h2>
+        <p>Inicia sesión con tu cuenta </p>
+        <div class="form-group"><input type="email" id="emailLogin" placeholder="Correo institucional" required></div>
+        <div class="form-group"><input type="password" id="passLogin" placeholder="Contraseña" required></div>
+        <button class="btn-ucm" onclick="procesarLogin()">Acceder</button>
+    </div>
+</div>
+
+<div id="vistaApp" class="hidden">
+    <div class="navbar">
+        <div class="navbar-brand">UCM<span>Reads</span></div>
+        <button onclick="cerrarSesion()" style="background:#e53e3e; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold;">Cerrar Sesión</button>
+    </div>
+
+    <div class="main-container">
+        <div class="user-banner"><div id="userBannerTxt"></div></div>
+
+        <!-- PANEL EXCLUSIVO DEL PROFESOR -->
+        <div id="panelProfesor" class="panel hidden">
+            <h3>⚙️ Panel de Gestión Docente: Publicar Lecturas</h3>
+            <div class="form-row">
+                <div class="form-group" style="flex:2;"><label>Título</label><input type="text" id="addTitulo"></div>
+                <div class="form-group" style="flex:1;"><label>Autor</label><input type="text" id="addAutor"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1;"><label>Asignatura</label><select id="addRamo"></select></div>
+                <div class="form-group" style="flex:1;"><label>Carácter</label><select id="addObligatorio"><option value="1">📕 Obligatorio</option><option value="0">📘 Complementario</option></select></div>
+            </div>
+            <div class="form-group"><label>Link descarga (Opcional)</label><input type="url" id="addEnlace"></div>
+            <button onclick="guardarLecturaProfesor()" class="btn-ucm" style="background-color: var(--ucm-success);">Indexar Texto Académico</button>
+        </div>
+
+        <!-- FILTROS CURRICULARES (SEMESTRE, ASIGNATURA Y PROFESOR) -->
+        <div class="panel">
+            <h3>🔍 Filtros de Consulta Curricular</h3>
+            <div style="display:flex; gap:15px; flex-wrap: wrap;">
+                <select id="selectSemestre" style="width:200px; padding:12px; border-radius:6px; border:1px solid #cbd5e0;">
+                    <option value="">Todos los Semestres</option>
+                    <option value="I">Semestre I</option><option value="II">Semestre II</option><option value="III">Semestre III</option><option value="IV">Semestre IV</option><option value="V">Semestre V</option><option value="VI">Semestre VI</option><option value="VII">Semestre VII</option><option value="VIII">Semestre VIII</option><option value="IX">Semestre IX</option><option value="X">Semestre X</option><option value="XI">Semestre XI</option>
+                </select>
+                <input type="text" id="inputAsignatura" placeholder="Buscar por asignatura o código..." style="flex:1; min-width:200px; padding:12px; border-radius:6px; border:1px solid #cbd5e0;">
+                <input type="text" id="inputProfesor" placeholder="Buscar por docente (Ej: Jerman)..." style="flex:1; min-width:200px; padding:12px; border-radius:6px; border:1px solid #cbd5e0;">
+                <button onclick="cargarLecturas()" class="btn-ucm" style="width:120px;">Filtrar</button>
+            </div>
+        </div>
+        <div id="listaLecturas"></div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:3000';
+    let usuarioLogueado = null;
+
+    async function procesarLogin() {
+        const correo = document.getElementById('emailLogin').value.trim();
+        const contrasenia = document.getElementById('passLogin').value.trim();
+        if(!correo || !contrasenia) return alert('Ingresa tus datos.');
+
+        try {
+            const res = await fetch(`${API_URL}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ correo, contrasenia })
+            });
+            const datos = await res.json();
+            if(!res.ok) return alert(datos.error);
+
+            usuarioLogueado = datos.usuario;
+            document.getElementById('vistaLogin').classList.add('hidden');
+            document.getElementById('vistaApp').classList.remove('hidden');
+            document.getElementById('userBannerTxt').innerHTML = `👤 Conectado: <strong>${usuarioLogueado.nombre}</strong> — Perfil ${usuarioLogueado.rol.toUpperCase()}`;
+
+            if(usuarioLogueado.rol === 'profesor') {
+                document.getElementById('panelProfesor').classList.remove('hidden');
+                poblarSelectAsignaturas();
+            } else { 
+                document.getElementById('panelProfesor').classList.add('hidden'); 
+            }
+            cargarLecturas();
+        } catch (e) { alert('Sin conexión con el backend.'); }
+    }
+
+    async function poblarSelectAsignaturas() {
+        const res = await fetch(`${API_URL}/api/asignaturas`);
+        const ramos = await res.json();
+        const select = document.getElementById('addRamo');
+        select.innerHTML = '';
+        ramos.forEach(r => select.innerHTML += `<option value="${r.codigo}">${r.nombre} (${r.codigo})</option>`);
+    }
+
+    async function guardarLecturaProfesor() {
+        const titulo = document.getElementById('addTitulo').value.trim();
+        const autor = document.getElementById('addAutor').value.trim();
+        const codigo_asignatura = document.getElementById('addRamo').value;
+        const es_obligatorio = document.getElementById('addObligatorio').value === "1";
+        const enlace_descarga = document.getElementById('addEnlace').value.trim();
+        if(!titulo || !autor) return alert('Completa los campos.');
+
+        try {
+            const res = await fetch(`${API_URL}/api/lecturas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo, autor, codigo_asignatura, enlace_descarga, id_profesor: usuarioLogueado.id, es_obligatorio })
+            });
+            const data = await res.json();
+            if(data.success) { alert(data.message); cargarLecturas(); }
+        } catch (e) { alert('Error al guardar.'); }
+    }
+
+    async function cargarLecturas() {
+        const sem = document.getElementById('selectSemestre').value;
+        const asig = document.getElementById('inputAsignatura').value.trim();
+        const prof = document.getElementById('inputProfesor').value.trim();
+        const contenedor = document.getElementById('listaLecturas');
+        
+        try {
+            const res = await fetch(`${API_URL}/api/lecturas?semestre=${sem}&asignatura=${asig}&profesor=${prof}`);
+            const datos = await res.json();
+            contenedor.innerHTML = '';
+
+            datos.forEach(item => {
+                const esProfesor = usuarioLogueado.rol === 'profesor';
+                contenedor.innerHTML += `
+                    <div class="card">
+                        <h3>📘 ${item.libro}</h3>
+                        <p><strong>Autor:</strong> ${item.autor} | <strong>Docente:</strong> ${item.profesor}</p>
+                        <p style="font-size: 14px; color: #718096;"><strong>Asignatura:</strong> ${item.asignatura} (${item.codigo}) — Semestre ${item.semestre}</p>
+                        <div style="margin: 15px 0 10px 0; display:flex; gap:12px;">
+                            ${item.es_obligatorio ? '<span class="tag-obligatorio">📕 Obligatorio</span>' : '<span class="tag-complementario">📘 Complementario</span>'}
+                            <span style="font-weight:bold; color:var(--ucm-blue);">⭐ ${Number(item.promedio_votos).toFixed(1)} (${item.total_votos} votos)</span>
+                        </div>
+                        ${item.enlace_descarga ? `<p><a href="${item.enlace_descarga}" target="_blank" style="color: var(--ucm-blue); font-weight: bold;">Descargar material digital →</a></p>` : `<p style="font-size:14px;">⚠️ Material físico. Buscar en: <a href="https://sibib.ucm.cl" target="_blank" style="color: var(--ucm-blue); font-weight: bold;">Catálogo SIBIB UCM →</a></p>`}
+                        ${esProfesor ? `<div style="text-align: right;"><button style="background:#e53e3e; color:white; border:none; padding: 6px 12px; border-radius: 6px; cursor:pointer;" onclick="eliminarLectura(${item.id})">🗑️ Eliminar</button></div>` : ''}
+                        <div class="voto-box ${esProfesor ? 'hidden' : ''}">
+                            <strong>Calificar:</strong>
+                            <select id="puntos-${item.id}"><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select>
+                            <input type="text" id="comentario-${item.id}" placeholder="Opinión...">
+                            <button class="btn-ucm" style="padding:5px 10px; width:auto;" onclick="enviarVoto(${item.id})">Votar</button>
+                        </div>
+                    </div>`;
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    async function enviarVoto(idLecturaRamo) {
+        const pts = document.getElementById(`puntos-${idLecturaRamo}`).value;
+        const com = document.getElementById(`comentario-${idLecturaRamo}`).value;
+        try {
+            const res = await fetch(`${API_URL}/api/votar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_lectura_ramo: idLecturaRamo, id_usuario: usuarioLogueado.id, puntuacion: parseInt(pts), comentario: com })
+            });
+            if(res.ok) { alert('¡Voto registrado!'); cargarLecturas(); }
+        } catch (e) { alert('Error al votar.'); }
+    }
+
+    async function eliminarLectura(idLecturaRamo) {
+        if (!confirm('¿Eliminar esta lectura de la malla?')) return;
+        try {
+            const res = await fetch(`${API_URL}/api/lecturas/${idLecturaRamo}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) { alert(data.message); cargarLecturas(); }
+        } catch (e) { alert('Error al eliminar.'); }
+    }
+
+    function cerrarSesion() {
+        usuarioLogueado = null;
+        document.getElementById('vistaApp').classList.add('hidden');
+        document.getElementById('vistaLogin').classList.remove('hidden');
+        document.getElementById('emailLogin').value = ''; 
+        document.getElementById('passLogin').value = '';
+    }
+</script>
+</body>
+</html>
