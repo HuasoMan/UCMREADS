@@ -15,7 +15,7 @@ const pool = mysql.createPool({
     connectionLimit: 10
 });
 
-// Login con validación de credenciales
+// 1. ENDPOINT: Autenticación
 app.post('/api/login', async (req, res) => {
     const { correo, contrasenia } = req.body;
     if (!correo || !contrasenia) return res.status(400).json({ error: 'Faltan credenciales.' });
@@ -27,20 +27,34 @@ app.post('/api/login', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Cargar asignaturas para el select del docente
-app.get('/api/asignaturas', async (req, res) => {
+// 2. ENDPOINT: Obtener Carreras disponibles
+app.get('/api/carreras', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM asignaturas ORDER BY nombre ASC');
+        const [rows] = await pool.query('SELECT DISTINCT carrera FROM asignaturas WHERE carrera IS NOT NULL AND carrera != "" ORDER BY carrera ASC');
         res.json(rows);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Catálogo con filtros por Semestre, Asignatura y Docente
+// 3. ENDPOINT: Obtener Asignaturas (filtradas opcionalmente por carrera)
+app.get('/api/asignaturas', async (req, res) => {
+    const { carrera } = req.query;
+    let query = 'SELECT * FROM asignaturas WHERE 1=1';
+    const params = [];
+    if (carrera && carrera.trim() !== "") { query += ' AND carrera = ?'; params.push(carrera); }
+    query += ' ORDER BY nombre ASC';
+    try {
+        const [rows] = await pool.query(query, params);
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 4. ENDPOINT: Catálogo público con filtros avanzados flexibles
 app.get('/api/lecturas', async (req, res) => {
-    const { semestre, asignatura, profesor } = req.query;
+    let { carrera, semestre, asignatura, profesor } = req.query;
+    
     let query = `
         SELECT lr.id, l.titulo AS libro, l.autor, u.nombre AS profesor, 
-               a.nombre AS asignatura, a.codigo, a.semestre, lr.es_obligatorio, l.enlace_descarga,
+               a.nombre AS asignatura, a.codigo, a.semestre, a.carrera, lr.es_obligatorio, l.enlace_descarga,
                IFNULL(AVG(v.puntuacion), 0) AS promedio_votos, COUNT(v.id) AS total_votos
         FROM lecturas_ramo lr
         JOIN libros l ON lr.id_libro = l.id
@@ -50,18 +64,33 @@ app.get('/api/lecturas', async (req, res) => {
         WHERE 1=1
     `;
     const params = [];
-    if (semestre) { query += " AND a.semestre = ?"; params.push(semestre); }
-    if (asignatura) { query += " AND (a.nombre LIKE ? OR a.codigo LIKE ?)"; params.push(`%${asignatura}%`, `%${asignatura}%`); }
-    if (profesor) { query += " AND u.nombre LIKE ?"; params.push(`%${profesor}%`); }
+    
+    if (carrera && carrera.trim() !== "" && carrera !== "undefined") { 
+        query += " AND a.carrera = ?"; 
+        params.push(carrera); 
+    }
+    if (semestre && semestre.trim() !== "" && semestre !== "undefined") { 
+        query += " AND a.semestre = ?"; 
+        params.push(semestre); 
+    }
+    if (asignatura && asignatura.trim() !== "") { 
+        query += " AND (a.nombre LIKE ? OR a.codigo LIKE ?)"; 
+        params.push(`%${asignatura}%`, `%${asignatura}%`); 
+    }
+    if (profesor && profesor.trim() !== "") { 
+        query += " AND u.nombre LIKE ?"; 
+        params.push(`%${profesor}%`); 
+    }
 
     query += " GROUP BY lr.id ORDER BY lr.id DESC";
     try {
         const [rows] = await pool.query(query, params);
+        res.setHeader('Cache-Control', 'no-store');
         res.json(rows);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Publicar lectura (Docente)
+// 5. ENDPOINT: Indexar nueva lectura (Docentes)
 app.post('/api/lecturas', async (req, res) => {
     const { titulo, autor, codigo_asignatura, id_profesor, es_obligatorio, enlace_descarga } = req.body;
     try {
@@ -72,16 +101,43 @@ app.post('/api/lecturas', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Votar texto (Estudiante)
+// 6. ENDPOINT: Evaluar un texto con validación estricta de carrera para estudiantes
 app.post('/api/votar', async (req, res) => {
     const { id_lectura_ramo, id_usuario, puntuacion, comentario } = req.body;
     try {
-        await pool.query('INSERT INTO votaciones (id_lectura_ramo, id_usuario, puntuacion, comentario) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE puntuacion=?, comentario=?', [id_lectura_ramo, id_usuario, puntuacion, comentario, puntuacion, comentario]);
-        res.json({ success: true });
+        const [userRows] = await pool.query('SELECT carrera, rol FROM usuarios WHERE id = ?', [id_usuario]);
+        if (userRows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
+        
+        const usuario = userRows[0];
+        if (usuario.rol !== 'estudiante') {
+            return res.status(403).json({ error: 'Solo los estudiantes pueden emitir calificaciones.' });
+        }
+
+        const [lecturaRows] = await pool.query(`
+            SELECT a.carrera 
+            FROM lecturas_ramo lr
+            JOIN asignaturas a ON lr.codigo_asignatura = a.codigo
+            WHERE lr.id = ?
+        `, [id_lectura_ramo]);
+
+        if (lecturaRows.length === 0) return res.status(404).json({ error: 'Lectura no encontrada.' });
+        const carreraLectura = lecturaRows[0].carrera;
+
+        if (usuario.carrera && usuario.carrera.trim() !== "" && usuario.carrera !== carreraLectura) {
+            return res.status(403).json({ error: `Solo puedes calificar lecturas correspondientes a tu carrera (${usuario.carrera}).` });
+        }
+
+        await pool.query(`
+            INSERT INTO votaciones (id_lectura_ramo, id_usuario, puntuacion, comentario) 
+            VALUES (?, ?, ?, ?) 
+            ON DUPLICATE KEY UPDATE puntuacion = ?, comentario = ?
+        `, [id_lectura_ramo, id_usuario, puntuacion, comentario, puntuacion, comentario]);
+        
+        res.json({ success: true, message: '¡Voto registrado con éxito!' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Eliminar lectura (Docente)
+// 7. ENDPOINT: Eliminar lectura recomendada (Docentes)
 app.delete('/api/lecturas/:id', async (req, res) => {
     const { id } = req.params;
     try {
